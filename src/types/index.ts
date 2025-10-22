@@ -2,6 +2,7 @@ import type {
     BaseAsset,
     BaseModuleSettings,
     DataResource,
+    DocumentResource,
     StudyContext,
 } from "@epicurrents/core/dist/types"
 
@@ -28,14 +29,30 @@ export type TableRowValue = boolean | number | string | Date
 /**
  * Tabular data resource for storing and managing one or more data tables.
  */
-export interface TabularDataResource extends DataResource {
+export interface TabularDataResource extends DocumentResource {
+    /** Currently active subcontext. */
+    activeSubcontext: DataResource | null
+    /** Asynchronously fetched tables from the worker. */
+    content: Promise<TabularDataTable[]>
+    /** Data resources that exist as subcontext for this tabular data resource. */
+    subcontexts: DataResource[]
     /** Tables in the resource. */
     tables: TabularDataTable[]
+    /**
+     * Add one or more resources as subcontext for this tabular data resource.
+     * @param resources - The resource(s) to add as subcontext(s).
+     */
+    addSubcontexts (...resources: DataResource[]): void
     /**
      * Add one or more new tables to the resource.
      * @param tables - Tables to add.
      */
     addTables (...tables: TabularDataTable[]): void
+    /**
+     * Remove one or more resources from this tabular data resource's subcontexts.
+     * @param resources - Resource(s) to remove from subcontexts.
+     */
+    removeSubcontexts (...resources: DataResource[]): void
     /**
      * Remove one or more tables from the resource.
      * @param tables - Tables to remove. Can be table instances, table IDs, or table indices.
