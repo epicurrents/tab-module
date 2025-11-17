@@ -3,7 +3,7 @@ import TabularData from './TabularData'
 import runtime from './runtime'
 import settings from './config'
 
-const modality = 'tab-data'
+const modality = 'tab'
 
 export {
     TabDataLoader,

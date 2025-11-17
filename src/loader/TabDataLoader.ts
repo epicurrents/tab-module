@@ -22,11 +22,10 @@ const SCOPE = 'TabDataLoader'
 export default class TabDataLoader extends GenericStudyLoader {
     constructor (name: string, type: string, importer: FileFormatImporter, exporter?: FileFormatExporter) {
         super(name, [type], importer, exporter)
-        
     }
 
     get resourceModality () {
-        return 'tab-data'
+        return 'tab'
     }
 
     async getResource (idx: number | string = -1): Promise<TabularDataResource | null> {
@@ -43,7 +42,8 @@ export default class TabDataLoader extends GenericStudyLoader {
             SCOPE)
             return null
         }
-        const worker = this._studyImporter?.getFileTypeWorker()
+        // The only modality supported by this loader is used to identify the worker.
+        const worker = this._studyImporter?.getFileTypeWorker(`tab-${this.supportedModalities[0]}`)
         if (!worker) {
             Log.error(`Study loader does not have a file worker.`, SCOPE)
             return null
@@ -55,6 +55,7 @@ export default class TabDataLoader extends GenericStudyLoader {
         const tab = new TabularData(
             this._study.name,
             this._study,
+            worker,
         )
         tab.source = this._study
         this._resources.push(tab)
@@ -68,20 +69,16 @@ export default class TabDataLoader extends GenericStudyLoader {
         if (!context) {
             return null
         }
-        context.modality = 'tab-data'
+        context.modality = 'tab'
         return context
     }
 
-    public async loadFromUrl (
-        fileUrl: string,
-        config?: ConfigStudyLoader,
-        preStudy?: StudyContext | undefined
-    ): Promise<StudyContext | null> {
+    public async loadFromUrl (fileUrl: string, config?: ConfigStudyLoader, preStudy?: StudyContext) {
         const context = await super.loadFromUrl(fileUrl, config, preStudy)
         if (!context) {
             return null
         }
-        context.modality = 'tab-data'
+        context.modality = 'tab'
         return context
     }
 }

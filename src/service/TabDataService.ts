@@ -8,7 +8,7 @@
 import { GenericService } from '@epicurrents/core'
 import type { StudyContext, WorkerResponse } from '@epicurrents/core/dist/types'
 import type { 
-    TabularDataDataService,
+    TabularDataService,
     SetupTabDataWorkerResponse,
     GetRowsResponse,
 } from '#types'
@@ -16,15 +16,15 @@ import { Log } from 'scoped-event-log'
 
 const SCOPE = "TabDataService"
 
-export default class TabDataService extends GenericService implements TabularDataDataService {
+export default class TabDataService extends GenericService implements TabularDataService {
+
+    constructor (worker: Worker) {
+        super ('tab', worker)
+        this._worker?.addEventListener('message', this.handleMessage.bind(this))
+    }
 
     get worker () {
         return this._worker
-    }
-
-    constructor (worker: Worker) {
-        super ('tab-data', worker)
-        this._worker?.addEventListener('message', this.handleMessage.bind(this))
     }
 
     async getRows (start: number, count?: number) {
@@ -48,39 +48,34 @@ export default class TabDataService extends GenericService implements TabularDat
         if (!commission) {
             return false
         }
-        if (data.action === 'get-rows') {
-            if (data.success) {
-                commission.resolve(data.rows)
-            } else {
-                Log.error(`Fetching rows failed.`, SCOPE)
-                commission.resolve(null)
-            }
-            return true
-        } else if (data.action === 'set-sources') {
-            if (data.success) {
-                commission.resolve({ numRows: data.numRows })
-            } else {
-                Log.error(`Setting sources failed.`, SCOPE)
-                commission.resolve({ numRows: 0 })
-            }
-            return true
-
+        if (data.action === 'setup-worker') {
+                const prevState = this.isReady
+                this._isWorkerSetup = data.success
+                if (data.success) {
+                    Log.debug(`Worker setup complete.`, SCOPE)
+                    commission.resolve({
+                        studies: data.studies,
+                        success: data.success,
+                        tables: data.tables,
+                    })
+                    this.dispatchPropertyChangeEvent('isReady', this.isReady, prevState)
+                } else if (commission.reject) {
+                    commission.reject(data.error as string)
+                }
+                this._notifyWaiters('setup-worker', data.success)
+                return true
         }
-        return false
+        return super._handleWorkerCommission(message)
     }
 
-    async prepareWorker (study: StudyContext) {
-        // Find the data files.
-        const items = study.files.filter(f => f.role === 'data').map(item => {
-            return {
-                file: item.file,
-                url: item.url,
-            }
-        })
+    async setupWorker (study: StudyContext) {
+        this._initWaiters('setup-worker')
         const commission = this._commissionWorker(
-            'set-sources',
-            new Map([
-                ['sources', items],
+            'setup-worker',
+            new Map<string, unknown>([
+                ['settings', window.__EPICURRENTS__.RUNTIME?.SETTINGS],
+                ['sources', study.api?.url],
+                ['authHeader', study.api?.authHeader],
             ])
         )
         return commission.promise as Promise<SetupTabDataWorkerResponse>
