@@ -20,8 +20,8 @@ import Log from 'scoped-event-log'
 const SCOPE = 'TabDataLoader'
 
 export default class TabDataLoader extends GenericStudyLoader {
-    constructor (name: string, type: string, importer: FileFormatImporter, exporter?: FileFormatExporter) {
-        super(name, [type], importer, exporter)
+    constructor (name: string, importer: FileFormatImporter, exporter?: FileFormatExporter) {
+        super(name, ['tab'], importer, exporter)
     }
 
     get resourceModality () {

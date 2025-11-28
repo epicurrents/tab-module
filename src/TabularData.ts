@@ -19,11 +19,15 @@ const SCOPE = "TabularData"
  */
 export default class TabularData extends GenericDocumentResource implements TabularDataResource {
 
+    protected _activeTable: TabularDataTable | null = null
+    protected _monitorActiveTable = true
+    /** Preliminary number of tables before loading the actual data. */
+    protected _numTables = 0
     protected _service: TabularDataService
     protected _subcontexts: Map<string, DataResource> = new Map()
     protected _tables: TabularDataTable[] = []
     /**
-     * Create a new tabular data resource.
+     * Create a new tabular data resource.§
      * @param name - Resource name; this will be displayed in the UI.
      * @param source - Data source as a study context.
      * @param worker - Worker to use for data operations.
@@ -31,38 +35,65 @@ export default class TabularData extends GenericDocumentResource implements Tabu
     constructor (name: string, source: StudyContext, worker: Worker) {
         super(name, 'tab', 'tab', source)
         this._service = new TabDataService(worker)
-        this._service.setupWorker(source).then((response) => {
+        const meta = source.meta as Partial<TabularDataResource>
+        if (meta?.numTables) {
+            this._numTables = meta.numTables
+        }
+        // Load resource on activation.
+        this.addEventListener(TabularData.EVENTS.ACTIVATE, async () => {
+            if (this._service?.isReady || this._state !== 'ready') {
+                return
+            }
+            this.dispatchEvent(TabularData.EVENTS.INITIAL_SETUP, 'before')
+            const response = await this._service.setupWorker(source)
             // Worker setup loads all the necessary data.
-            console.log('response', response)
             if (response.success) {
-                this._state = 'ready'
                 for (const tableTemplate of response.tables) {
                     const table = new TabDataTable(
                         tableTemplate.name || `${this.name}-table-${this._tables.length + 1}`,
                         tableTemplate.configuration,
                         tableTemplate.label,
+                        tableTemplate.sections,
+                        tableTemplate.isMetadata,
                     )
-                    table.sections = tableTemplate.sections
                     this._tables.push(table)
                 }
-                if (response.studies) {
-                    for (const [modality, studies] of Object.entries(response.studies)) {
-                        Log.debug(`Loading ${studies.length} subcontext(s) for modality '${modality}'.`, SCOPE)
-                        for (const study of studies) {
-                            this.loadSubcontextFromTemplate(study).then((res) => {
-                                if (study.id && res) {
-                                    this.addSubcontexts([study.id, res])
-                                }
-                            })
-                        }
-                    }
-                }
                 this.dispatchPropertyChangeEvent('tables', this._tables, [])
+                if (response.studies) {
+                    const loaded = [] as DataResource[]
+                    for (const [modality, studies] of Object.entries(response.studies!)) {
+                        Log.debug(`Loading ${studies.length} subcontext(s) for modality '${modality}'.`, SCOPE)
+                        loaded.push(...(await Promise.all(studies.map(study =>
+                            this.loadSubcontextFromTemplate(study)
+                        ))).filter(s => s && s.id) as DataResource[])
+                    }
+                    this.addSubcontexts(...loaded.map(s => [s!.id, s!] as [string, DataResource]))
+                    // Notify about subcontext change.
+                    this.dispatchPropertyChangeEvent('state', 'ready', 'ready')
+                }
             } else {
-                this._state = 'error'
-                this._errorReason = 'Failed to prepare worker.'
+                this.state = 'error'
+                this.errorReason = 'Failed to prepare worker.'
             }
-        })
+            this.dispatchEvent(TabularData.EVENTS.INITIAL_SETUP, 'after')
+        }, this.id)
+    }
+
+    get activeTable () {
+        return this._activeTable
+    }
+    set activeTable (value: TabularDataTable | null) {
+        // Don't trigger event monitors.
+        this._monitorActiveTable = false
+        if (this._activeTable) {
+            this._activeTable.isActive = false
+        }
+        if (value) {
+            // This change should trigger a property change event via isActive monitoring.
+            value.isActive = true
+        }
+        this._setPropertyValue('activeTable', value)
+        this._monitorActiveTable = true
     }
 
     get content (): Promise<TabularDataTable[]> {
@@ -70,6 +101,10 @@ export default class TabularData extends GenericDocumentResource implements Tabu
         return new Promise((_resolve => {
             return this._tables
         }))
+    }
+
+    get numTables () {
+        return this._tables.filter(table => table.sections.length > 0 && !table.isMetadata).length || this._numTables
     }
 
     get subcontexts () {
@@ -95,7 +130,12 @@ export default class TabularData extends GenericDocumentResource implements Tabu
         return this._tables
     }
     set tables (value: TabularDataTable[]) {
-        this._setPropertyValue('tables', value)
+        for (const table of this._tables) {
+            table.removeAllEventListeners(this.id)
+        }
+        this._tables.length = 0
+        // Do this via addTables to ensure event monitoring is set up.
+        this.addTables(...value)
     }
 
     addSubcontexts (...resources: [string, DataResource][]) {
@@ -119,7 +159,60 @@ export default class TabularData extends GenericDocumentResource implements Tabu
     }
 
     addTables (...tables: TabularDataTable[]) {
-        this.tables = [...this._tables, ...tables]
+        // Monitor new tables for changes in active state.
+        for (const table of tables) {
+            table.onPropertyChange('isActive', (newValue) => {
+                if (!this._monitorActiveTable) {
+                    return
+                }
+                if (newValue) {
+                    // Deactivate other tables.
+                    for (const otherTable of tables) {
+                        if (otherTable !== table) {
+                            otherTable.isActive = false
+                        }
+                    }
+                    this._setPropertyValue('activeTable', newValue)
+                } else if (this._activeTable?.id === table.id) {
+                    this._setPropertyValue('activeTable', null)
+                }
+            }, this.id)
+        }
+        this._setPropertyValue('tables', [...this._tables, ...tables])
+    }
+
+    getMainProperties(): Map<any, any> {
+        const props = super.getMainProperties()
+        if (this._state === 'ready') {
+                if (this._tables.length > 0) {
+                props.set(
+                    this.numTables.toString(),
+                    {
+                        icon: 'border-all',
+                        n: this.numTables,
+                        title: '{n} tables'
+                    }
+                )
+                props.set(
+                    this._subcontexts.size.toString(),
+                    {
+                        icon: 'wave',
+                        n: this._subcontexts.size,
+                        title: '{n} studies'
+                    }
+                )
+            } else if (this.numTables > 0) {
+                props.set(
+                    this.numTables.toString(),
+                    {
+                        icon: 'border-all',
+                        n: this.numTables,
+                        title: '{n} tables'
+                    }
+                )
+            }
+        }
+        return props
     }
 
     async loadSubcontextFromTemplate (template: DeepPartial<DataResource>): Promise<DataResource | null> {
@@ -135,8 +228,12 @@ export default class TabularData extends GenericDocumentResource implements Tabu
             return null
         }
         const resource = module.getResourceFromSerialized?.(template)
-        console.log(resource)
         return resource || null
+    }
+
+    async prepare (): Promise<boolean> {
+        this.state = 'ready'
+        return true
     }
 
     removeSubcontexts(...resources: (string | DataResource)[]) {
@@ -176,6 +273,7 @@ export default class TabularData extends GenericDocumentResource implements Tabu
         }
         this.tables = newTables
     }
+
     setActiveSubcontext (contextKey: string | null) {
         if (contextKey === null) {
             this._activeChildResource = null
@@ -187,5 +285,16 @@ export default class TabularData extends GenericDocumentResource implements Tabu
             return
         }
         this.activeChildResource = resource
+    }
+
+    setActiveTableByReference (table: number | string) {
+        const resource = typeof table === 'number'
+                       ? this.tables[table]
+                       : this._tables.find(t => t.name === table)
+        if (!resource) {
+            Log.error(`Cannot set active table; no table with designator '${table}' was found.`, SCOPE)
+            return
+        }
+        this.activeTable = resource
     }
 }

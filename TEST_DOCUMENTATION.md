@@ -37,7 +37,7 @@ The unit tests cover all public methods and properties of the `TabularData` clas
 
 ### Inheritance Tests
 - ✅ Inherits from GenericResource
-- ✅ Has correct resource type ('tab-data')
+- ✅ Has correct resource type ('tab')
 - ✅ Is in 'ready' state immediately
 
 ### Property Change Notifications

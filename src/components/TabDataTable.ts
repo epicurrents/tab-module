@@ -18,6 +18,7 @@ const SCOPE = "TabDataTable"
 export default class TabDataTable extends GenericResource implements TabularDataTable {
 
     _configuration: DataTableColumnConfiguration[]
+    _isMetadata = false
     _label: string
     _name: string
     _sections: DataTableSection[] = []
@@ -30,12 +31,14 @@ export default class TabDataTable extends GenericResource implements TabularData
         name: string,
         configuration: DataTableColumnConfiguration[],
         label?: string,
-        sections?: DataTableSection[]
+        sections?: DataTableSection[],
+        isMetadata?: boolean,
     ) {
         super(name, 'tab')
         this._configuration = configuration
         this._label = label || name
         this._name = name
+        this._isMetadata = isMetadata || false
         if (sections) {
             this.replaceAllSections(...sections)
         }
@@ -46,6 +49,13 @@ export default class TabDataTable extends GenericResource implements TabularData
     }
     set configuration (value: DataTableColumnConfiguration[]) {
         this._setPropertyValue('configuration', value)
+    }
+
+    get isMetadata () {
+        return this._isMetadata
+    }
+    set isMetadata (value: boolean) {
+        this._setPropertyValue('isMetadata', value)
     }
 
     get label () {

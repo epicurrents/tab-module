@@ -21,8 +21,12 @@ export type TabDataModuleSettings = BaseModuleSettings
  * Tabular data resource for storing and managing one or more data tables.
  */
 export interface TabularDataResource extends DocumentResource {
+    /** Currently active table in the resource. */
+    activeTable: TabularDataTable | null
     /** Asynchronously fetched tables from the worker. */
     content: Promise<TabularDataTable[]>
+    /** Number of tables in the resource. */
+    numTables: number
     /**
      * Data resources that exist as subcontext for this tabular data resource.
      * This is essentially a map from resource keys to child resources.
@@ -61,6 +65,11 @@ export interface TabularDataResource extends DocumentResource {
      * @param contextKey - Key of the subcontext to set as active, or null to clear the active subcontext.
      */
     setActiveSubcontext (contextKey: string | null): void
+    /**
+     * Set the active table by its index or name.
+     * @param table - Index or name of the table to set as active.
+     */
+    setActiveTableByReference (table:  number | string): void
 }
 export interface TabularDataService extends AssetService {
     setupWorker (study: StudyContext): Promise<SetupTabDataWorkerResponse>
@@ -82,6 +91,8 @@ export type TabularDataStudyContext = StudyContext & {
 export interface TabularDataTable extends BaseAsset {
     /** Column configurations. */
     configuration: DataTableColumnConfiguration[]
+    /** Indicates if the table contains metadata. */
+    isMetadata: boolean
     /** Table label. */
     label: string
     /** Data rows. Values must be in the same order as in the column configurations. Use null for empty values. */

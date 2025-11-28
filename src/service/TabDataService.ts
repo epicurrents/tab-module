@@ -49,21 +49,22 @@ export default class TabDataService extends GenericService implements TabularDat
             return false
         }
         if (data.action === 'setup-worker') {
-                const prevState = this.isReady
-                this._isWorkerSetup = data.success
-                if (data.success) {
-                    Log.debug(`Worker setup complete.`, SCOPE)
-                    commission.resolve({
-                        studies: data.studies,
-                        success: data.success,
-                        tables: data.tables,
-                    })
-                    this.dispatchPropertyChangeEvent('isReady', this.isReady, prevState)
-                } else if (commission.reject) {
-                    commission.reject(data.error as string)
-                }
-                this._notifyWaiters('setup-worker', data.success)
-                return true
+            const prevState = this.isReady
+            this._isCacheSetup = data.success
+            this._isWorkerSetup = data.success
+            if (data.success) {
+                Log.debug(`Worker setup complete.`, SCOPE)
+                commission.resolve({
+                    studies: data.studies,
+                    success: data.success,
+                    tables: data.tables,
+                })
+                this.dispatchPropertyChangeEvent('isReady', this.isReady, prevState)
+            } else if (commission.reject) {
+                commission.reject(data.error as string)
+            }
+            this._notifyWaiters('setup-worker', data.success)
+            return true
         }
         return super._handleWorkerCommission(message)
     }

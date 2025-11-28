@@ -7,9 +7,26 @@
  * @license    Apache-2.0
  */
 
+// Mock the TabDataService so constructor setupWorker runs synchronously in tests
+jest.mock('../src/service/TabDataService', () => {
+    return jest.fn().mockImplementation(() => ({
+        // Return a thenable that invokes the callback synchronously so constructor finishes setup
+        setupWorker: jest.fn().mockImplementation(() => ({
+            then: (cb: any) => {
+                cb({ success: true, tables: [], studies: {} })
+                return { catch: () => {} }
+            }
+        }))
+    }))
+})
+
 import TabularData from '../src/TabularData'
-import type { StudyContext } from '@epicurrents/core/dist/types'
-import type { TabularDataTable, TableColumnConfiguration, TableRowValue } from '../src/types'
+import type {
+    DataTableColumnConfiguration,
+    DataTableRowValue,
+    StudyContext,
+} from '@epicurrents/core/dist/types'
+import type { TabularDataTable } from '../src/types'
 
 // Mock StudyContext for testing
 const createMockStudyContext = (): StudyContext => ({
@@ -21,16 +38,17 @@ const createMockStudyContext = (): StudyContext => ({
 const createMockTable = (id: string, name: string): TabularDataTable => ({
     id,
     name,
+    isActive: false,
     configuration: [
         { name: 'id', label: 'ID', contentType: Number },
         { name: 'name', label: 'Name', contentType: String },
         { name: 'active', label: 'Active', contentType: Boolean }
-    ] as TableColumnConfiguration[],
+    ] as DataTableColumnConfiguration[],
     rows: [
-        [1, 'Test Item 1', true],
-        [2, 'Test Item 2', false],
-        [3, 'Test Item 3', true]
-    ] as TableRowValue[][],
+        [{ value: 1 }, { value: 'Test Item 1' }, { value: true }],
+        [{ value: 2 }, { value: 'Test Item 2' }, { value: false }],
+        [{ value: 3 }, { value: 'Test Item 3' }, { value: true }]
+    ] as DataTableRowValue[][],
     addRows: jest.fn(),
     insertRows: jest.fn(),
     removeRows: jest.fn(),
@@ -44,13 +62,14 @@ describe('TabularData', () => {
 
     beforeEach(() => {
         mockStudyContext = createMockStudyContext()
-        tabularData = new TabularData('Test Tabular Data', mockStudyContext)
+        // Provide a dummy worker object; real worker is not needed because TabDataService is mocked.
+        tabularData = new TabularData('Test Tabular Data', mockStudyContext, {} as unknown as Worker)
     })
 
     describe('constructor', () => {
         test('should create a new TabularData instance with correct properties', () => {
             expect(tabularData.name).toBe('Test Tabular Data')
-            expect((tabularData as any).type).toBe('tab-data')
+            expect((tabularData as any).type).toBe('tab')
             expect(tabularData.source).toBe(mockStudyContext)
             expect((tabularData as any).state).toBe('ready')
             expect(tabularData.tables).toEqual([])
@@ -246,7 +265,7 @@ describe('TabularData', () => {
         })
 
         test('should have correct resource type', () => {
-            expect((tabularData as any).type).toBe('tab-data')
+            expect((tabularData as any).type).toBe('tab')
         })
 
         test('should be in ready state immediately', () => {
@@ -287,6 +306,68 @@ describe('TabularData', () => {
             tabularData.removeTables(tableWithoutId)
             
             expect(tabularData.tables).toHaveLength(0)
+        })
+    })
+
+    describe('setActiveTable', () => {
+        let t1: TabularDataTable
+        let t2: TabularDataTable
+        let t3: TabularDataTable
+
+        beforeEach(() => {
+            t1 = createMockTable('table1', 'Table 1')
+            t2 = createMockTable('table2', 'Table 2')
+            t3 = createMockTable('table3', 'Table 3')
+            tabularData.tables = [t1, t2, t3]
+        })
+
+        test('should activate table by index and deactivate others when dispatch allows', () => {
+            const spy = jest.spyOn(tabularData as any, 'dispatchPayloadEvent').mockImplementation(() => true)
+
+            // Activate second table by index
+            tabularData.setActiveTableByReference(1)
+
+            expect(t1.isActive).toBe(false)
+            expect(t2.isActive).toBe(true)
+            expect(t3.isActive).toBe(false)
+            expect(spy).toHaveBeenCalledWith('active-table', t2, 'before')
+            expect(spy).toHaveBeenCalledWith('active-table', t2, 'after')
+
+            spy.mockRestore()
+        })
+
+        test('should not activate table when dispatchPayloadEvent returns false', () => {
+            const spy = jest.spyOn(tabularData as any, 'dispatchPayloadEvent').mockImplementation(() => false)
+
+            tabularData.setActiveTableByReference('table3')
+
+            expect(t1.isActive).toBe(false)
+            expect(t2.isActive).toBe(false)
+            expect(t3.isActive).toBe(false)
+
+            spy.mockRestore()
+        })
+
+        test('should activate table by reference', () => {
+            const spy = jest.spyOn(tabularData as any, 'dispatchPayloadEvent').mockImplementation(() => true)
+
+            tabularData.activeTable = t1
+
+            expect(t1.isActive).toBe(true)
+            expect(t2.isActive).toBe(false)
+            expect(t3.isActive).toBe(false)
+
+            spy.mockRestore()
+        })
+
+        test('should deactivate all tables when passed null', () => {
+            // Pre-mark one active
+            t2.isActive = true
+            tabularData.activeTable = null
+
+            expect(t1.isActive).toBe(false)
+            expect(t2.isActive).toBe(false)
+            expect(t3.isActive).toBe(false)
         })
     })
 })
