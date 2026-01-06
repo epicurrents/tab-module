@@ -6,8 +6,16 @@
  */
 
 import { GenericDocumentResource, GenericResource } from '@epicurrents/core'
-import type { DataResource, StudyContext } from '@epicurrents/core/dist/types'
-import type { TabularDataResource, TabularDataService, TabularDataTable } from '#types'
+import type {
+    AnnotationLabel,
+    DataResource,
+    StudyContext,
+} from '@epicurrents/core/dist/types'
+import type {
+    TabularDataResource,
+    TabularDataService,
+    TabularDataTable,
+} from '#types'
 import TabDataService from './service/TabDataService'
 import TabDataTable from './components/TabDataTable'
 import { DeepPartial } from '@epicurrents/core/dist/types/util'
@@ -76,6 +84,14 @@ export default class TabularData extends GenericDocumentResource implements Tabu
                 this.errorReason = 'Failed to prepare worker.'
             }
             this.dispatchEvent(TabularData.EVENTS.INITIAL_SETUP, 'after')
+        }, this.id)
+        // Send updated labels to service.
+        this.onPropertyChange('labels', async (value) => {
+            await this._service.saveAnnotations({
+                events: [],
+                id: this.datasetId || this.name,
+                labels: value as AnnotationLabel[],
+            })
         }, this.id)
     }
 
@@ -272,6 +288,14 @@ export default class TabularData extends GenericDocumentResource implements Tabu
             newTables.push(table)
         }
         this.tables = newTables
+    }
+
+   async saveAnnotationsToDataset () {
+        return this._service.saveAnnotations({
+            events: [],
+            id: this.id,
+            labels: this.labels,
+        })
     }
 
     setActiveSubcontext (contextKey: string | null) {

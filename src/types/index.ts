@@ -1,4 +1,5 @@
 import type {
+    AnnotationLabel,
     AssetService,
     BaseAsset,
     BaseModuleSettings,
@@ -61,6 +62,11 @@ export interface TabularDataResource extends DocumentResource {
      */
     removeTables (...tables: (number | string | TabularDataTable)[]): void
     /**
+     * Save current annotations to the dataset.
+     * @returns A promise that resolves (or rejects) when the annotations have been saved.
+     */
+    saveAnnotationsToDataset (): Promise<void>
+    /**
      * Set the active subcontext by its key. This will set the corresponding resource as the active sub-resource.
      * @param contextKey - Key of the subcontext to set as active, or null to clear the active subcontext.
      */
@@ -72,6 +78,13 @@ export interface TabularDataResource extends DocumentResource {
     setActiveTableByReference (table:  number | string): void
 }
 export interface TabularDataService extends AssetService {
+    saveAnnotations (
+        annotations: {
+            events: unknown[],
+            id: string,
+            labels: AnnotationLabel[],
+        }
+    ): Promise<void>
     setupWorker (study: StudyContext): Promise<SetupTabDataWorkerResponse>
 }
 /**
