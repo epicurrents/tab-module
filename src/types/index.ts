@@ -46,6 +46,11 @@ export interface TabularDataResource extends DocumentResource {
      */
     addTables (...tables: TabularDataTable[]): void
     /**
+     * Load the data for this resource from the given study `source`.
+     * @param source - The study source to use (defaults to cached study).
+     */
+    loadStudyData (source?: StudyContext): Promise<void>
+    /**
      * Load the subcontext from the given template and add it to this resource.
      * @param template - The template to load.
      * @returns A promise that resolves to the loaded subcontext or null if not found.

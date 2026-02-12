@@ -52,38 +52,7 @@ export default class TabularData extends GenericDocumentResource implements Tabu
             if (this._service?.isReady || this._state !== 'ready') {
                 return
             }
-            this.dispatchEvent(TabularData.EVENTS.INITIAL_SETUP, 'before')
-            const response = await this._service.setupWorker(source)
-            // Worker setup loads all the necessary data.
-            if (response.success) {
-                for (const tableTemplate of response.tables) {
-                    const table = new TabDataTable(
-                        tableTemplate.name || `${this.name}-table-${this._tables.length + 1}`,
-                        tableTemplate.configuration,
-                        tableTemplate.label,
-                        tableTemplate.sections,
-                        tableTemplate.isMetadata,
-                    )
-                    this._tables.push(table)
-                }
-                this.dispatchPropertyChangeEvent('tables', this._tables, [])
-                if (response.studies) {
-                    const loaded = [] as DataResource[]
-                    for (const [modality, studies] of Object.entries(response.studies!)) {
-                        Log.debug(`Loading ${studies.length} subcontext(s) for modality '${modality}'.`, SCOPE)
-                        loaded.push(...(await Promise.all(studies.map(study =>
-                            this.loadSubcontextFromTemplate(study)
-                        ))).filter(s => s && s.id) as DataResource[])
-                    }
-                    this.addSubcontexts(...loaded.map(s => [s!.id, s!] as [string, DataResource]))
-                    // Notify about subcontext change.
-                    this.dispatchPropertyChangeEvent('state', 'ready', 'ready')
-                }
-            } else {
-                this.state = 'error'
-                this.errorReason = 'Failed to prepare worker.'
-            }
-            this.dispatchEvent(TabularData.EVENTS.INITIAL_SETUP, 'after')
+            this.loadStudyData()
         }, this.id)
         // Send updated labels to service.
         this.onPropertyChange('labels', async (value) => {
@@ -229,6 +198,41 @@ export default class TabularData extends GenericDocumentResource implements Tabu
             }
         }
         return props
+    }
+
+    async loadStudyData (source: StudyContext = this._source as StudyContext) {
+        this.dispatchEvent(TabularData.EVENTS.INITIAL_SETUP, 'before')
+        const response = await this._service.setupWorker(source)
+        // Worker setup loads all the necessary data.
+        if (response.success) {
+            for (const tableTemplate of response.tables) {
+                const table = new TabDataTable(
+                    tableTemplate.name || `${this.name}-table-${this._tables.length + 1}`,
+                    tableTemplate.configuration,
+                    tableTemplate.label,
+                    tableTemplate.sections,
+                    tableTemplate.isMetadata,
+                )
+                this._tables.push(table)
+            }
+            this.dispatchPropertyChangeEvent('tables', this._tables, [])
+            if (response.studies) {
+                const loaded = [] as DataResource[]
+                for (const [modality, studies] of Object.entries(response.studies!)) {
+                    Log.debug(`Loading ${studies.length} subcontext(s) for modality '${modality}'.`, SCOPE)
+                    loaded.push(...(await Promise.all(studies.map(study =>
+                        this.loadSubcontextFromTemplate(study)
+                    ))).filter(s => s && s.id) as DataResource[])
+                }
+                this.addSubcontexts(...loaded.map(s => [s!.id, s!] as [string, DataResource]))
+                // Notify about subcontext change.
+                this.dispatchPropertyChangeEvent('state', 'ready', 'ready')
+            }
+        } else {
+            this.state = 'error'
+            this.errorReason = 'Failed to prepare worker.'
+        }
+        this.dispatchEvent(TabularData.EVENTS.INITIAL_SETUP, 'after')
     }
 
     async loadSubcontextFromTemplate (template: DeepPartial<DataResource>): Promise<DataResource | null> {
