@@ -6,6 +6,7 @@
  */
 
 //import { logInvalidMutation } from '@epicurrents/core/dist/runtime'
+import { safeObjectFrom } from '@epicurrents/core/dist/util'
 import type {
     DataResource,
     RuntimeResourceModule,
@@ -16,8 +17,7 @@ import type { TabularDataResource } from '#types'
 
 //const SCOPE = 'tab-runtime-module'
 
-const TAB: SafeObject & RuntimeResourceModule = {
-    __proto__: null,
+const TAB = safeObjectFrom({
     moduleName: {
         code: 'tab',
         full: 'Tabular Data',
@@ -37,5 +37,5 @@ const TAB: SafeObject & RuntimeResourceModule = {
             return
         }
     },
-}
+} as SafeObject & RuntimeResourceModule)
 export default TAB
