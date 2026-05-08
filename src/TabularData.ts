@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { GenericDocumentResource, GenericResource } from '@epicurrents/core'
+import { GenericDocumentResource } from '@epicurrents/core'
 import type {
     AnnotationLabel,
     DataResource,
@@ -115,6 +115,9 @@ export default class TabularData extends GenericDocumentResource implements Tabu
         return this._tables
     }
     set tables (value: TabularDataTable[]) {
+        if (!Array.isArray(value)) {
+            return
+        }
         for (const table of this._tables) {
             table.removeAllEventListeners(this.id)
         }
@@ -284,7 +287,7 @@ export default class TabularData extends GenericDocumentResource implements Tabu
                 if (
                     typeof t === 'number' && t === i ||
                     typeof t === 'string' && t === table.id ||
-                    t instanceof GenericResource && t.id === table.id
+                    typeof t === 'object' && t !== null && (t as TabularDataTable).id === table.id
                 ) {
                     continue table_loop
                 }
