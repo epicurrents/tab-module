@@ -5,14 +5,14 @@
  * @license    Apache-2.0
  */
 
-//import { logInvalidMutation } from '@epicurrents/core/dist/runtime'
-import { safeObjectFrom } from '@epicurrents/core/dist/util'
+//import { logInvalidMutation } from '@epicurrents/core/runtime'
+import { safeObjectFrom } from '@epicurrents/core/util'
 import type {
     DataResource,
     RuntimeResourceModule,
     SafeObject,
     StateManager,
-} from '@epicurrents/core/dist/types'
+} from '@epicurrents/core/types'
 import type { TabularDataResource } from '#types'
 
 //const SCOPE = 'tab-runtime-module'

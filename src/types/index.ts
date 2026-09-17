@@ -8,11 +8,11 @@ import type {
     DataTableRowValue,
     DataTableSection,
     DataTableTemplate,
+    DeepPartial,
     DocumentResource,
     StudyContext,
     TaskResponse,
-} from "@epicurrents/core/dist/types"
-import { DeepPartial } from "@epicurrents/core/dist/types/util"
+} from "@epicurrents/core/types"
 
 export type GetRowsResponse = unknown[][] | null
 export type GetTablesResponse = unknown[][] | null

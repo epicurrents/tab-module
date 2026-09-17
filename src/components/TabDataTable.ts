@@ -6,10 +6,10 @@
  */
 
 import { GenericResource } from '@epicurrents/core'
-import type { DataTableColumnConfiguration, DataTableRowValue, DataTableSection } from '@epicurrents/core/dist/types'
+import type { DataTableColumnConfiguration, DataTableRowValue, DataTableSection } from '@epicurrents/core/types'
 import type { TabularDataTable } from '#types'
 import { Log } from 'scoped-event-log'
-import { deepClone } from '@epicurrents/core/dist/util'
+import { deepClone } from '@epicurrents/core/util'
 
 const SCOPE = "TabDataTable"
 /**

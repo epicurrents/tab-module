@@ -23,7 +23,7 @@ import type {
     DataTableColumnConfiguration,
     DataTableRowValue,
     StudyContext,
-} from '@epicurrents/core/dist/types'
+} from '@epicurrents/core/types'
 import type { TabularDataTable } from '../src/types'
 
 const createMockEventBus = () => ({

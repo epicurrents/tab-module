@@ -9,8 +9,9 @@ import { GenericDocumentResource } from '@epicurrents/core'
 import type {
     AnnotationLabel,
     DataResource,
+    DeepPartial,
     StudyContext,
-} from '@epicurrents/core/dist/types'
+} from '@epicurrents/core/types'
 import type {
     TabularDataResource,
     TabularDataService,
@@ -18,7 +19,6 @@ import type {
 } from '#types'
 import TabDataService from './service/TabDataService'
 import TabDataTable from './components/TabDataTable'
-import { DeepPartial } from '@epicurrents/core/dist/types/util'
 import Log from 'scoped-event-log'
 
 const SCOPE = "TabularData"

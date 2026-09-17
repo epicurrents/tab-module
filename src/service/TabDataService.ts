@@ -10,7 +10,7 @@ import type {
     AnnotationLabel,
     StudyContext,
     WorkerResponse,
-} from '@epicurrents/core/dist/types'
+} from '@epicurrents/core/types'
 import type {
     TabularDataService,
     SetupTabDataWorkerResponse,
