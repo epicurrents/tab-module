@@ -97,7 +97,11 @@ export default class TabDataService extends GenericService implements TabularDat
         const commission = this._commissionWorker(
             'setup-worker',
             new Map<string, unknown>([
-                ['settings', window.__EPICURRENTS__.RUNTIME?.SETTINGS],
+                // The clonable snapshot, not the live settings object: that one is a Proxy
+                // carrying its own methods, which `postMessage` cannot structurally clone. The
+                // recovery path cannot rescue it either, since it passes functions through by
+                // reference, so the retry throws again and the rejection escapes uncaught.
+                ['settings', window.__EPICURRENTS__.RUNTIME?.SETTINGS._CLONABLE],
                 ['sources', study.api?.url],
                 ['authHeader', study.api?.authHeader],
             ])
