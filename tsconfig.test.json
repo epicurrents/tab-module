@@ -1,0 +1,14 @@
+{
+    // The suite is type-checked as a step of `npm test`, ahead of the unit run. The worker is the
+    // one thing replaced by a double, since this package ships none, so this is what catches that
+    // double drifting from the commission protocol the service actually posts.
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "noEmit": true,
+        "rootDir": ".",
+        "types": ["node"],
+        "typeRoots": ["../../node_modules/@types", "./node_modules/@types"]
+    },
+    "include": ["./tests/**/*", "./src/**/*"],
+    "exclude": ["node_modules", "dist"]
+}

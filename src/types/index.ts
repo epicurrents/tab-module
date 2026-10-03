@@ -1,3 +1,10 @@
+/**
+ * Epicurrents tab data module types.
+ * @package    epicurrents/tab-module
+ * @copyright  2025 Sampsa Lohi
+ * @license    Apache-2.0
+ */
+
 import type {
     AnnotationLabel,
     AssetService,
@@ -12,11 +19,21 @@ import type {
     DocumentResource,
     StudyContext,
     TaskResponse,
-} from "@epicurrents/core/types"
+} from '@epicurrents/core/types'
 
+/** Rows the worker returned, or null if it had none to give. */
 export type GetRowsResponse = unknown[][] | null
-export type GetTablesResponse = unknown[][] | null
-
+/**
+ * Reply to the `setup-worker` commission.
+ *
+ * The table templates are the worker's answer to the whole setup, not a later commission: a resource
+ * builds its tables from them as the setup resolves. `studies` names the subcontexts the source
+ * carries, keyed by modality, each one a template for the resource module of that modality.
+ */
+export type SetupTabDataWorkerResponse = TaskResponse & {
+    tables: DataTableTemplate[]
+    studies?: Record<string, Partial<DataResource>[]>
+}
 export type TabDataModuleSettings = BaseModuleSettings
 /**
  * Tabular data resource for storing and managing one or more data tables.
@@ -24,7 +41,7 @@ export type TabDataModuleSettings = BaseModuleSettings
 export interface TabularDataResource extends DocumentResource {
     /** Currently active table in the resource. */
     activeTable: TabularDataTable | null
-    /** Asynchronously fetched tables from the worker. */
+    /** Promise that resolves with the tables of the resource. */
     content: Promise<TabularDataTable[]>
     /** Number of tables in the resource. */
     numTables: number
@@ -47,6 +64,9 @@ export interface TabularDataResource extends DocumentResource {
     addTables (...tables: TabularDataTable[]): void
     /**
      * Load the data for this resource from the given study `source`.
+     *
+     * The outcome is reported through the resource state rather than returned: a source the worker
+     * cannot set up leaves the resource in the error state with the reason the worker gave.
      * @param source - The study source to use (defaults to cached study).
      */
     loadStudyData (source?: StudyContext): Promise<void>
@@ -80,9 +100,27 @@ export interface TabularDataResource extends DocumentResource {
      * Set the active table by its index or name.
      * @param table - Index or name of the table to set as active.
      */
-    setActiveTableByReference (table:  number | string): void
+    setActiveTableByReference (table: number | string): void
 }
+/**
+ * Service that holds the worker a tabular data resource reads through.
+ *
+ * The worker is not part of this package; a consumer registers one with its study importer and the
+ * study loader hands it over. The commissions are `setup-worker`, `get-rows` and `save-annotations`.
+ */
 export interface TabularDataService extends AssetService {
+    /**
+     * Read a range of rows from the source.
+     * @param start - Index of the first row to read.
+     * @param count - Number of rows to read; the worker decides the extent when this is omitted.
+     * @returns A promise that resolves with the rows, or with null if the worker had none to give.
+     */
+    getRows (start: number, count?: number): Promise<GetRowsResponse>
+    /**
+     * Save the given annotations to the source.
+     * @param annotations - The events and labels to save, and the id of the dataset to save them to.
+     * @returns A promise that resolves when the annotations have been saved, and rejects with the reason if not.
+     */
     saveAnnotations (
         annotations: {
             events: unknown[],
@@ -90,6 +128,11 @@ export interface TabularDataService extends AssetService {
             labels: AnnotationLabel[],
         }
     ): Promise<void>
+    /**
+     * Set up the worker against the given study, which is also what loads the data.
+     * @param study - The study to set the worker up for.
+     * @returns A promise that resolves with the reply, failures included; it does not reject.
+     */
     setupWorker (study: StudyContext): Promise<SetupTabDataWorkerResponse>
 }
 /**
@@ -105,6 +148,10 @@ export type TabularDataStudyContext = StudyContext & {
 }
 /**
  * A table for holding tabular data.
+ *
+ * Every mutation is validated against the column configuration and refused as a whole if a row does
+ * not match it in length or in cell type, so a table always renders against its own configuration.
+ * A section is addressed by name or by position; the names are expected to be unique within a table.
  */
 export interface TabularDataTable extends BaseAsset {
     /** Column configurations. */
@@ -121,6 +168,11 @@ export interface TabularDataTable extends BaseAsset {
      * @param rows - Rows to add.
      */
     addRows (section: number | string, ...rows: DataTableRowValue[][]): void
+    /**
+     * Add one or more new sections to the end of the table.
+     * @param sections - Sections to add.
+     */
+    addSections (...sections: DataTableSection[]): void
     /**
      * Insert one or more new rows into the table at the specified position.
      * @param section - Index or name of the section in which to insert the new rows.
@@ -171,9 +223,4 @@ export interface TabularDataTable extends BaseAsset {
      * @param sections - New section(s).
      */
     replaceSections (start: number, end: number, ...sections: DataTableSection[]): void
-}
-
-export type SetupTabDataWorkerResponse = TaskResponse & {
-    tables: DataTableTemplate[]
-    studies?: Record<string, Partial<DataResource>[]>
 }
